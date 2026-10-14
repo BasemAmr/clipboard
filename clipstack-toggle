@@ -1,0 +1,6 @@
+#!/bin/sh
+# Bound to Super+V. Asks the running ClipStack to show its popup over D-Bus
+# (instant), and starts ClipStack first if it isn't running yet.
+gdbus call --session --dest io.github.clipstack --object-path /io/github/clipstack \
+    --method org.gtk.Actions.Activate show "[]" "{}" >/dev/null 2>&1 \
+    || exec "$HOME/.local/bin/clipstack" "$@"
