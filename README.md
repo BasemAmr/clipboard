@@ -8,7 +8,9 @@ Small (one Python file), fast, no Electron, no background lag.
 - Text **and images** (screenshots, copied pictures) with thumbnails
 - **Pin / unpin** items, **delete** single items, **Clear all** (keeps pinned)
 - Keeps the latest **25** unpinned items (pinned ones never expire)
-- Search box, full keyboard control, light/dark theme follows your system
+- Text previews show up to 4 lines, then …
+- Pasting an item leaves it where it is in the list
+- Closes on Esc, any other key, or a click outside; light/dark theme follows your system
 - Starts automatically on login; history survives restarts
 - Terminal-aware: text goes in with Ctrl+Shift+V in terminals, Ctrl+V elsewhere
 - Ignores password-manager copies; history folder is private (chmod 700)
@@ -26,11 +28,11 @@ quit it (`copyq exit`) so it doesn't fight over Super+V.
 ## Keys in the popup
 | Key | Action |
 |---|---|
-| Up / Down, Tab | move |
+| Up / Down, Tab, PgUp / PgDn | move |
 | Enter or click | paste |
 | Ctrl+P | pin / unpin |
 | Delete | remove item |
-| Esc | clear search, then close |
+| Esc, any other key, or click outside | close |
 
 ## Settings
 `clipstack --config` opens `~/.config/clipstack/config.json`

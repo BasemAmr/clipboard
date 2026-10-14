@@ -179,12 +179,6 @@ class History:
         self.changed()
         return item
 
-    def bump(self, item):
-        self.items.remove(item)
-        item["time"] = time.time()
-        self.items.insert(0, item)
-        self.changed()
-
     def _trim(self):
         unpinned = [i for i in self.items if not i.get("pinned")]
         for old in unpinned[self.cfg["max_items"]:]:
@@ -252,6 +246,7 @@ class Watcher:
         # Hash of the item currently owned by the app it was copied from. Pasting
         # that item again leaves the clipboard alone, so rich formatting survives.
         self.live_hash = None
+        self.own_hash = None  # last item we put back ourselves; never re-recorded
         self._debounce_id = 0
 
     def _on_owner_change(self, *_):
@@ -284,6 +279,9 @@ class Watcher:
         if not text or not text.strip() or len(text) > self.cfg["max_text_kb"] * 1024:
             return
         digest = hashlib.sha1(b"t" + text.encode("utf-8", "replace")).hexdigest()
+        if digest == self.own_hash:
+            return
+        self.own_hash = None
         self.live_hash = digest
         self.history.add({"id": uuid.uuid4().hex, "kind": "text", "text": text,
                           "hash": digest, "pinned": False, "time": time.time()})
@@ -308,6 +306,9 @@ class Watcher:
         GLib.idle_add(self._add_image, item)
 
     def _add_image(self, item):
+        if item["hash"] == self.own_hash:
+            return False
+        self.own_hash = None
         self.live_hash = item["hash"]
         self.history.add(item)
         return False
@@ -317,7 +318,7 @@ class Watcher:
         if item["hash"] == self.live_hash:
             return
         self.suppress_until = time.monotonic() + 0.5
-        self.live_hash = None
+        self.live_hash = self.own_hash = item["hash"]
         if item["kind"] == "text":
             self.clipboard.set_text(item["text"], -1)
         else:
@@ -342,12 +343,6 @@ window.clipstack { background-color: transparent; }
 }
 .cs-clear:hover { background-color: @cs_hover; }
 .cs-clear label { color: @cs_accent; }
-.cs-search {
-  margin: 10px 2px 8px 2px; border-radius: 6px; min-height: 30px;
-  background-image: none; background-color: @cs_card; color: @cs_fg;
-  border: 1px solid @cs_border; box-shadow: none;
-}
-.cs-search:focus { border-bottom: 2px solid @cs_accent; }
 scrolledwindow, viewport, list.cs-list { background-color: transparent; }
 list.cs-list row { background-color: transparent; padding: 3px 2px; outline: none;
                    box-shadow: none; border: none; }
@@ -438,17 +433,13 @@ class Popup(Gtk.Window):
         header.pack_end(clear, False, False, 0)
         panel.pack_start(header, False, False, 0)
 
-        self.search = Gtk.SearchEntry(placeholder_text="Search history")
-        self.search.get_style_context().add_class("cs-search")
-        self.search.connect("search-changed", self._on_search)
-        panel.pack_start(self.search, False, False, 0)
+        header.set_margin_bottom(10)
 
         self.listbox = Gtk.ListBox()
         self.listbox.get_style_context().add_class("cs-list")
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.set_activate_on_single_click(True)
         self.listbox.set_can_focus(False)
-        self.listbox.set_filter_func(self._filter)
         self.listbox.connect("row-activated", lambda _lb, row: self.app.paste(row.item))
         self.scroller = Gtk.ScrolledWindow()
         self.scroller.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -513,7 +504,9 @@ class Popup(Gtk.Window):
         body = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
 
         if item["kind"] == "text":
-            preview = item["text"].lstrip("\n")[:600].replace("\t", "    ")
+            # U+2028 breaks lines inside one paragraph, so the 4-line cap (which
+            # Pango applies per paragraph) covers the whole preview.
+            preview = item["text"].strip().replace("\t", "    ")[:800].replace("\n", "\u2028")
             label = Gtk.Label(label=preview, xalign=0, yalign=0, wrap=True,
                               wrap_mode=Pango.WrapMode.WORD_CHAR,
                               ellipsize=Pango.EllipsizeMode.END, lines=4,
@@ -543,7 +536,6 @@ class Popup(Gtk.Window):
         buttons.pack_start(delete, False, False, 0)
         card.pack_end(buttons, False, False, 0)
 
-        row.search_text = (item["text"].lower() if item["kind"] == "text" else "image picture")
         row.add(card)
         return row
 
@@ -571,19 +563,10 @@ class Popup(Gtk.Window):
         img.get_style_context().add_class("cs-thumb")
         return img
 
-    # ---- selection & search ------------------------------------------------
-
-    def _filter(self, row):
-        q = self.search.get_text().strip().lower()
-        return not q or all(w in row.search_text for w in q.split())
-
-    def _on_search(self, *_):
-        self.listbox.invalidate_filter()
-        rows = self._visible_rows()
-        self._select(rows[0] if rows else None)
+    # ---- selection ---------------------------------------------------------
 
     def _visible_rows(self):
-        return [r for r in self.listbox.get_children() if self._filter(r)]
+        return self.listbox.get_children()
 
     def selected_item(self):
         row = self.listbox.get_selected_row()
@@ -620,10 +603,7 @@ class Popup(Gtk.Window):
         ctrl = ev.state & Gdk.ModifierType.CONTROL_MASK
         item = self.selected_item()
         if key == Gdk.KEY_Escape:
-            if self.search.get_text():
-                self.search.set_text("")
-            else:
-                self.hide()
+            self.hide()
         elif key in (Gdk.KEY_Down, Gdk.KEY_Tab):
             self._move(1)
         elif key in (Gdk.KEY_Up, Gdk.KEY_ISO_Left_Tab):
@@ -635,13 +615,15 @@ class Popup(Gtk.Window):
         elif key in (Gdk.KEY_Return, Gdk.KEY_KP_Enter):
             if item:
                 self.app.paste(item)
-        elif key == Gdk.KEY_Delete and not self.search.get_text() and item:
+        elif key == Gdk.KEY_Delete and item:
             self._move(1) if item is not self._visible_rows()[-1].item else self._move(-1)
             self.history.delete(item)
         elif ctrl and key in (Gdk.KEY_p, Gdk.KEY_P) and item:
             self.history.toggle_pin(item)
+        elif ev.is_modifier:
+            pass  # wait for the actual key of a combo like Ctrl+P
         else:
-            return False
+            self.hide()  # any other key closes the popup
         return True
 
     def _on_focus_out(self, *_):
@@ -655,7 +637,6 @@ class Popup(Gtk.Window):
     def popup(self):
         if self.dirty:
             self.rebuild()
-        self.search.set_text("")
         rows = self._visible_rows()
         self._select(rows[0] if rows else None)
         self.scroller.get_vadjustment().set_value(0)
@@ -665,7 +646,6 @@ class Popup(Gtk.Window):
         ts = GdkX11.x11_get_server_time(self.get_window())
         self.present_with_time(ts)
         self.get_window().focus(ts)
-        self.search.grab_focus()
 
     def _place_near_pointer(self):
         display = Gdk.Display.get_default()
@@ -738,8 +718,6 @@ class App(Gtk.Application):
 
     def paste(self, item):
         self.watcher.put(item)
-        if not self.cfg["pinned_on_top"] or not item.get("pinned"):
-            self.history.bump(item)
         self.popup_win.hide()
         target = self.target_window
         if target is not None:
