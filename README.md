@@ -3,9 +3,6 @@
 A Windows-style **Win+V clipboard history** for Linux Mint (Cinnamon / X11).
 Small (one Python file), fast, no Electron, no background lag.
 
-<p align="center">
-  <img src="assets/preview.png" alt="ClipStack Preview" width="380" />
-</p>
 
 ## Features
 - **Super+V** opens a card popup next to the mouse; **click** (or Enter) pastes into the app you were in
