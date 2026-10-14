@@ -3,6 +3,10 @@
 A Windows-style **Win+V clipboard history** for Linux Mint (Cinnamon / X11).
 Small (one Python file), fast, no Electron, no background lag.
 
+<p align="center">
+  <img src="assets/preview.png" alt="ClipStack Preview" width="380" />
+</p>
+
 ## Features
 - **Super+V** opens a card popup next to the mouse; **click** (or Enter) pastes into the app you were in
 - Text **and images** (screenshots, copied pictures) with thumbnails
@@ -18,7 +22,7 @@ Small (one Python file), fast, no Electron, no background lag.
 
 ## Install
 ```bash
-git clone <your-repo-url> clipstack && cd clipstack
+git clone https://github.com/BasemAmr/clipboard.git clipstack && cd clipstack
 ./install.sh                         # asks for sudo once (for xclip)
 ./install.sh --shortcut '<Super><Shift>v'   # optional: different shortcut
 ```
