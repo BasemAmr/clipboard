@@ -10,7 +10,7 @@ Small (one Python file), fast, no Electron, no background lag.
 - Keeps the latest **25** unpinned items (pinned ones never expire)
 - Text previews show up to 4 lines, then …
 - Pasting an item leaves it where it is in the list
-- Closes on Esc, any other key, or a click outside; light/dark theme follows your system
+- Stays open while you type; closes on Esc or a click outside; light/dark theme follows your system
 - Starts automatically on login; history survives restarts
 - Terminal-aware: text goes in with Ctrl+Shift+V in terminals, Ctrl+V elsewhere
 - Ignores password-manager copies; history folder is private (chmod 700)
@@ -32,7 +32,7 @@ quit it (`copyq exit`) so it doesn't fight over Super+V.
 | Enter or click | paste |
 | Ctrl+P | pin / unpin |
 | Delete | remove item |
-| Esc, any other key, or click outside | close |
+| Esc or click outside | close |
 
 ## Settings
 `clipstack --config` opens `~/.config/clipstack/config.json`

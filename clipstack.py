@@ -620,10 +620,8 @@ class Popup(Gtk.Window):
             self.history.delete(item)
         elif ctrl and key in (Gdk.KEY_p, Gdk.KEY_P) and item:
             self.history.toggle_pin(item)
-        elif ev.is_modifier:
-            pass  # wait for the actual key of a combo like Ctrl+P
-        else:
-            self.hide()  # any other key closes the popup
+        # Any other key is swallowed so the popup stays open (only Esc or a
+        # click outside closes it).
         return True
 
     def _on_focus_out(self, *_):
