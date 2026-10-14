@@ -402,6 +402,7 @@ class Popup(Gtk.Window):
         self.history = app.history
         self.dirty = True
         self.shown_at = 0.0
+        self._watch_id = 0
         self.thumbs = {}
 
         self.get_style_context().add_class("clipstack")
@@ -625,10 +626,33 @@ class Popup(Gtk.Window):
         return True
 
     def _on_focus_out(self, *_):
-        # The window manager can bounce focus right after showing; ignore that.
-        if time.monotonic() - self.shown_at > 0.4:
+        # Only a mouse click outside closes the popup. Losing focus to the
+        # keyboard (Super menu, Print Screen tool...) keeps it open, so watch
+        # for a later click outside while we're unfocused.
+        if time.monotonic() - self.shown_at > 0.4 and self._clicked_outside():
             self.hide()
+        elif not self._watch_id:
+            self._watch_id = GLib.timeout_add(100, self._watch_clicks)
         return False
+
+    def _clicked_outside(self):
+        win = self.get_window()
+        pointer = Gdk.Display.get_default().get_default_seat().get_pointer()
+        _w, x, y, mask = win.get_device_position(pointer)
+        buttons = (Gdk.ModifierType.BUTTON1_MASK | Gdk.ModifierType.BUTTON2_MASK
+                   | Gdk.ModifierType.BUTTON3_MASK)
+        inside = 0 <= x < win.get_width() and 0 <= y < win.get_height()
+        return bool(mask & buttons) and not inside
+
+    def _watch_clicks(self):
+        if not self.get_visible() or self.is_active():
+            self._watch_id = 0
+            return False
+        if self._clicked_outside():
+            self._watch_id = 0
+            self.hide()
+            return False
+        return True
 
     # ---- showing -----------------------------------------------------------
 
