@@ -77,16 +77,17 @@ if gsettings list-keys org.cinnamon.desktop.keybindings >/dev/null 2>&1; then
   if [[ -z "$slot" ]]; then
     i=0; while [[ "$list" == *"'custom$i'"* ]]; do i=$((i + 1)); done
     slot="custom$i"
-    if [[ "$list" == "@as []" || "$list" == "[]" ]]; then
-      gsettings set $KB custom-list "['$slot']"
-    else
-      gsettings set $KB custom-list "${list%]}, '$slot']"
-    fi
   fi
+  # Cinnamon reads an entry's settings only when custom-list changes, so fill
+  # the entry in first and then (re)write the list to make it reload.
   p="/org/cinnamon/desktop/keybindings/custom-keybindings/$slot/"
   gsettings set $KB.custom-keybinding:$p name 'Clipboard History'
   gsettings set $KB.custom-keybinding:$p command "$BIN/clipstack-toggle"
   gsettings set $KB.custom-keybinding:$p binding "['$SHORTCUT']"
+  others="$(echo "$list" | sed 's/^@as //' | tr -d "[]'," | tr ' ' '\n' \
+             | grep -vx -e "$slot" -e '' | sed "s/.*/'&'/" | paste -sd, - || true)"
+  gsettings set $KB custom-list "[${others}]"   # drop it, then re-add: forces a reload
+  gsettings set $KB custom-list "[${others:+$others, }'$slot']"
   say "Shortcut $SHORTCUT -> Clipboard History"
 else
   warn "Not on Cinnamon: add a keyboard shortcut for '$BIN/clipstack-toggle' in your desktop settings."
