@@ -64,7 +64,7 @@ DESKTOP
 
 # 4. Keyboard shortcut (Cinnamon). Adds to your custom shortcuts without
 #    touching existing ones; re-running updates the same entry.
-if gsettings list-schemas 2>/dev/null | grep -qx org.cinnamon.desktop.keybindings; then
+if gsettings list-keys org.cinnamon.desktop.keybindings >/dev/null 2>&1; then
   KB=org.cinnamon.desktop.keybindings
   list="$(gsettings get $KB custom-list)"
   slot=""

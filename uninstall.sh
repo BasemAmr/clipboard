@@ -8,7 +8,7 @@ rm -f "$BIN/clipstack" "$BIN/clipstack-toggle" \
       "$HOME/.local/share/applications/clipstack.desktop" "$HOME/.config/autostart/clipstack.desktop"
 
 KB=org.cinnamon.desktop.keybindings
-if gsettings list-schemas 2>/dev/null | grep -qx $KB; then
+if gsettings list-keys $KB >/dev/null 2>&1; then
   list="$(gsettings get $KB custom-list)"
   for name in $(echo "$list" | tr -d "[]',"); do
     p="/org/cinnamon/desktop/keybindings/custom-keybindings/$name/"
