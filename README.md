@@ -4,7 +4,7 @@ A Windows-style **Win+V clipboard history** for Linux Mint (Cinnamon / X11).
 Small (one Python file), fast, no Electron, no background lag.
 
 <p align="center">
-  <img src="assets/preview.png?raw=true&v=2" alt="ClipStack Preview" width="380" />
+  <img src="assets/clipstack-ui.png" alt="ClipStack Preview" width="380" />
 </p>
 
 ## Features
