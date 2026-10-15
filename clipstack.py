@@ -412,6 +412,11 @@ class Popup(Gtk.Window):
         self.set_skip_pager_hint(True)
         self.set_keep_above(True)
         self.set_type_hint(Gdk.WindowTypeHint.UTILITY)
+        # Never take X focus: the app you were typing in must keep it (a
+        # browser closes its address-bar dropdown the moment it loses focus).
+        # Keys reach us through a keyboard grab instead.
+        self.set_accept_focus(False)
+        self.set_focus_on_map(False)
         self.set_default_size(self.cfg["width"], self.cfg["height"])
         self.set_size_request(self.cfg["width"], self.cfg["height"])
         visual = self.get_screen().get_rgba_visual()
@@ -465,7 +470,7 @@ class Popup(Gtk.Window):
         panel.pack_end(hint, False, False, 0)
 
         self.connect("key-press-event", self._on_key)
-        self.connect("focus-out-event", self._on_focus_out)
+        self.connect("hide", self._on_hide)
         self.connect("delete-event", lambda *_: self.hide() or True)
         panel.show_all()
         self.realize()
@@ -625,15 +630,16 @@ class Popup(Gtk.Window):
         # click outside closes it).
         return True
 
-    def _on_focus_out(self, *_):
-        # Only a mouse click outside closes the popup. Losing focus to the
-        # keyboard (Super menu, Print Screen tool...) keeps it open, so watch
-        # for a later click outside while we're unfocused.
-        if time.monotonic() - self.shown_at > 0.4 and self._clicked_outside():
-            self.hide()
-        elif not self._watch_id:
-            self._watch_id = GLib.timeout_add(100, self._watch_clicks)
-        return False
+    def _grab_keyboard(self):
+        seat = Gdk.Display.get_default().get_default_seat()
+        seat.grab(self.get_window(), Gdk.SeatCapabilities.KEYBOARD, False,
+                  None, None, None)
+
+    def _on_hide(self, *_):
+        Gdk.Display.get_default().get_default_seat().ungrab()
+        if self._watch_id:
+            GLib.source_remove(self._watch_id)
+            self._watch_id = 0
 
     def _clicked_outside(self):
         win = self.get_window()
@@ -645,10 +651,10 @@ class Popup(Gtk.Window):
         return bool(mask & buttons) and not inside
 
     def _watch_clicks(self):
-        if not self.get_visible() or self.is_active():
+        if not self.get_visible():
             self._watch_id = 0
             return False
-        if self._clicked_outside():
+        if time.monotonic() - self.shown_at > 0.4 and self._clicked_outside():
             self._watch_id = 0
             self.hide()
             return False
@@ -665,9 +671,9 @@ class Popup(Gtk.Window):
         self._place_near_pointer()
         self.shown_at = time.monotonic()
         self.show()
-        ts = GdkX11.x11_get_server_time(self.get_window())
-        self.present_with_time(ts)
-        self.get_window().focus(ts)
+        self._grab_keyboard()
+        if not self._watch_id:
+            self._watch_id = GLib.timeout_add(100, self._watch_clicks)
 
     def _place_near_pointer(self):
         display = Gdk.Display.get_default()
